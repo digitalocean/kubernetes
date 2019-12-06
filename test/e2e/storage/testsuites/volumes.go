@@ -175,7 +175,7 @@ func (t *volumesTestSuite) defineTests(driver TestDriver, pattern testpatterns.T
 		init()
 		defer cleanup()
 
-		testScriptInPod(f, l.resource.volType, l.resource.volSource, l.config)
+		testScriptInPod(f, string(pattern.VolType), l.resource.volSource, l.config)
 	})
 }
 

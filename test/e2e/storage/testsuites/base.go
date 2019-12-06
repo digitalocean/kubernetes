@@ -166,7 +166,6 @@ type genericVolumeTestResource struct {
 	driver    TestDriver
 	config    *PerTestConfig
 	pattern   testpatterns.TestPattern
-	volType   string
 	volSource *v1.VolumeSource
 	pvc       *v1.PersistentVolumeClaim
 	pv        *v1.PersistentVolume
@@ -197,7 +196,6 @@ func createGenericVolumeTestResource(driver TestDriver, config *PerTestConfig, p
 		e2elog.Logf("Creating resource for inline volume")
 		if iDriver, ok := driver.(InlineVolumeTestDriver); ok {
 			r.volSource = iDriver.GetVolumeSource(false, fsType, r.volume)
-			r.volType = dInfo.Name
 		}
 	case testpatterns.PreprovisionedPV:
 		e2elog.Logf("Creating resource for pre-provisioned PV")
@@ -206,7 +204,6 @@ func createGenericVolumeTestResource(driver TestDriver, config *PerTestConfig, p
 			if pvSource != nil {
 				r.volSource, r.pv, r.pvc = createVolumeSourceWithPVCPV(f, dInfo.Name, pvSource, volumeNodeAffinity, false, pattern.VolMode)
 			}
-			r.volType = fmt.Sprintf("%s-preprovisionedPV", dInfo.Name)
 		}
 	case testpatterns.DynamicPV:
 		e2elog.Logf("Creating resource for dynamic PV")
@@ -223,7 +220,6 @@ func createGenericVolumeTestResource(driver TestDriver, config *PerTestConfig, p
 				r.volSource, r.pv, r.pvc = createVolumeSourceWithPVCPVFromDynamicProvisionSC(
 					f, dInfo.Name, claimSize, r.sc, false, pattern.VolMode)
 			}
-			r.volType = fmt.Sprintf("%s-dynamicPV", dInfo.Name)
 		}
 	default:
 		framework.Failf("genericVolumeTestResource doesn't support: %s", volType)
