@@ -74,10 +74,12 @@ func (c *ManagedDiskController) CreateManagedDisk(options *ManagedDiskOptions) (
 	var err error
 	klog.V(4).Infof("azureDisk - creating new managed Name:%s StorageAccountType:%s Size:%v", options.DiskName, options.StorageAccountType, options.SizeGB)
 
-	var createZones *[]string
+	var createZones []string
 	if len(options.AvailabilityZone) > 0 {
-		zoneList := []string{c.common.cloud.GetZoneID(options.AvailabilityZone)}
-		createZones = &zoneList
+		requestedZone := c.common.cloud.GetZoneID(options.AvailabilityZone)
+		if requestedZone != "" {
+			createZones = append(createZones, requestedZone)
+		}
 	}
 
 	// insert original tags to newTags
@@ -132,11 +134,14 @@ func (c *ManagedDiskController) CreateManagedDisk(options *ManagedDiskOptions) (
 	model := compute.Disk{
 		Location: &c.common.location,
 		Tags:     newTags,
-		Zones:    createZones,
 		Sku: &compute.DiskSku{
 			Name: diskSku,
 		},
 		DiskProperties: &diskProperties,
+	}
+
+	if len(createZones) > 0 {
+		model.Zones = &createZones
 	}
 
 	if options.ResourceGroup == "" {
@@ -189,6 +194,15 @@ func (c *ManagedDiskController) DeleteManagedDisk(diskURI string) error {
 
 	if _, ok := c.common.diskAttachDetachMap.Load(strings.ToLower(diskURI)); ok {
 		return fmt.Errorf("failed to delete disk(%s) since it's in attaching or detaching state", diskURI)
+	}
+
+	disk, err := c.common.cloud.DisksClient.Get(ctx, resourceGroup, diskName)
+	if err != nil {
+		return err
+	}
+
+	if disk.ManagedBy != nil {
+		return fmt.Errorf("disk(%s) already attached to node(%s), could not be deleted", diskURI, *disk.ManagedBy)
 	}
 
 	_, err = c.common.cloud.DisksClient.Delete(ctx, resourceGroup, diskName)

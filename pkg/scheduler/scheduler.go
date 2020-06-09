@@ -187,6 +187,9 @@ func New(client clientset.Interface,
 	for _, opt := range opts {
 		opt(&options)
 	}
+
+	metrics.Register()
+
 	// Set up the configurator which can create schedulers from configs.
 	configurator := factory.NewConfigFactory(&factory.ConfigFactoryArgs{
 		Client:                         client,
@@ -290,7 +293,6 @@ func initPolicyFromConfigMap(client clientset.Interface, policyRef *kubeschedule
 
 // NewFromConfig returns a new scheduler using the provided Config.
 func NewFromConfig(config *factory.Config) *Scheduler {
-	metrics.Register()
 	return &Scheduler{
 		SchedulerCache:      config.SchedulerCache,
 		Algorithm:           config.Algorithm,
@@ -554,6 +556,9 @@ func (sched *Scheduler) scheduleOne() {
 			// Pod did not fit anywhere, so it is counted as a failure. If preemption
 			// succeeds, the pod should get counted as a success the next time we try to
 			// schedule it. (hopefully)
+			metrics.PodScheduleFailures.Inc()
+		} else if err == core.ErrNoNodesAvailable {
+			// No nodes available is counted as unschedulable rather than an error.
 			metrics.PodScheduleFailures.Inc()
 		} else {
 			klog.Errorf("error selecting node for pod: %v", err)
